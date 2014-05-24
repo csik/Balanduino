@@ -11,7 +11,5 @@ PORT = /dev/tty.usbserial-DNWYFIDM
 #EXTRA_FLAGS += -D DEBUG_USB_HOST
 
 # Leave these alone
-THIRD_PARTY_HARDWARE = ../hardware/Balanduino/avr
-BOARD = balanduino
-
-include Arduino_Makefile_master/_Makefile.master
+all: 
+	arm-linux-gnueabihf-g++ -D__ARM_ARCH_7A__ -I/home/ubuntu/usr/xenomai/include -D_GNU_SOURCE -D_REENTRANT Balanduino.h  Kalman.h EEPROMAnything.h  I2C.c   Tools.c Balanduino.c Bluetooth.c  EEPROM.c Kalman.h  Motor.c Spektrum.c -D__XENO__  -Xlinker -rpath -Xlinker /home/ubuntu/usr/xenomai/lib -lnative -L/home/ubuntu/usr/xenomai/lib -lxenomai -lpthread -lrt -v -o bal

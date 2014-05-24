@@ -14,6 +14,7 @@
  Web      :  http://www.tkjelectronics.com
  e-mail   :  kristianl@tkjelectronics.com
 */
+#include "Balanduino.h"
 
 void updatePID(double restAngle, double offset, double turning, double dt) {
   /* Brake */

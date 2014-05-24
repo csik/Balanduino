@@ -1,53 +1,6 @@
 /* Copyright (C) 2013-2014 Kristian Lauszus, TKJ Electronics. All rights reserved.
 
- This software may be distributed and modified under the terms of the GNU
- General Public License version 2 (GPL2) as published by the Free Software
- Foundation and appearing in the file GPL2.TXT included in the packaging of
- this file. Please note that GPL2 Section 2[b] requires that all works based
- on this software must also be made publicly available under the terms of
- the GPL2 ("Copyleft").
-
- Contact information
- -------------------
-
- Kristian Lauszus, TKJ Electronics
- Web      :  http://www.tkjelectronics.com
- e-mail   :  kristianl@tkjelectronics.com
-
- This is the algorithm for the Balanduino balancing robot.
- It can be controlled by either an Android app or a computer application via Bluetooth.
- The Android app can be found at the following link: https://github.com/TKJElectronics/BalanduinoAndroidApp
- The Processing application can be found here: https://github.com/TKJElectronics/BalanduinoProcessingApp
- A dedicated Windows application can be found here: https://github.com/TKJElectronics/BalanduinoWindowsApp
- It can also be controlled by a PS3, PS4, Wii or a Xbox controller.
- Furthermore it supports the Spektrum serial protocol used for RC receivers.
- For details, see: http://balanduino.net/
-*/
-
-/* Use this to enable and disable the different options */
-#define ENABLE_TOOLS
-#define ENABLE_SPP
-#define ENABLE_PS3
-#define ENABLE_PS4
-#define ENABLE_WII
-#define ENABLE_XBOX
-#define ENABLE_ADK
-#define ENABLE_SPEKTRUM
-
-#include "Balanduino.h"
-#include <Arduino.h> // Standard Arduino header
-#include <Wire.h> // Official Arduino Wire library
-
-#ifdef ENABLE_ADK
-#include <adk.h>
-#endif
-
-// These are all open source libraries written by Kristian Lauszus, TKJ Electronics
-// The USB libraries are located at the following link: https://github.com/felis/USB_Host_Shield_2.0
-#include <Kalman.h> // Kalman filter library - see: http://blog.tkjelectronics.dk/2012/09/a-practical-approach-to-kalman-filter-and-how-to-implement-it/
-
-#ifdef ENABLE_XBOX
-#include <XBOXRECV.h>
+ This software may be distributed and modified under the terms of the GNU General Public License version 2 (GPL2) as published by the Free Software Foundation and appearing in the file GPL2.TXT included in the packaging of this file. Please note that GPL2 Section 2[b] requires that all works based on this software must also be made publicly available under the terms of the GPL2 ("Copyleft").  Contact information ------------------- Kristian Lauszus, TKJ Electronics Web      :  http://www.tkjelectronics.com e-mail   :  kristianl@tkjelectronics.com This is the algorithm for the Balanduino balancing robot.  It can be controlled by either an Android app or a computer application via Bluetooth.  The Android app can be found at the following link: https://github.com/TKJElectronics/BalanduinoAndroidApp The Processing application can be found here: https://github.com/TKJElectronics/BalanduinoProcessingApp A dedicated Windows application can be found here: https://github.com/TKJElectronics/BalanduinoWindowsApp It can also be controlled by a PS3, PS4, Wii or a Xbox controller.  Furthermore it supports the Spektrum serial protocol used for RC receivers.  For details, see: http://balanduino.net/ */ /* Use this to enable and disable the different options */ //#define ENABLE_TOOLS //#define ENABLE_SPP //#define ENABLE_PS3 //#define ENABLE_PS4 //#define ENABLE_WII //#define ENABLE_XBOX //#define ENABLE_ADK //#define ENABLE_SPEKTRUM #include "Balanduino.h" #ifdef ENABLE_ADK #include <adk.h> #endif // These are all open source libraries written by Kristian Lauszus, TKJ Electronics // The USB libraries are located at the following link: https://github.com/felis/USB_Host_Shield_2.0 #include "Kalman.h" // Kalman filter library - see: http://blog.tkjelectronics.dk/2012/09/a-practical-approach-to-kalman-filter-and-how-to-implement-it/ #ifdef ENABLE_XBOX #include <XBOXRECV.h>
 #endif
 #ifdef ENABLE_SPP
 #include <SPP.h>
@@ -65,13 +18,13 @@
 // Create the Kalman library instance
 Kalman kalman; // See https://github.com/TKJElectronics/KalmanFilter for source code
 
-#if defined(ENABLE_SPP) || defined(ENABLE_PS3) || defined(ENABLE_PS4) || defined(ENABLE_WII) || defined(ENABLE_XBOX) || defined(ENABLE_ADK)
-#define ENABLE_USB
-USB Usb; // This will take care of all USB communication
-#else
-#define _usb_h_ // Workaround include trap in the USB Host library
-#include <avrpins.h> // Include this from the USB Host library
-#endif
+//#if defined(ENABLE_SPP) || defined(ENABLE_PS3) || defined(ENABLE_PS4) || defined(ENABLE_WII) || defined(ENABLE_XBOX) || defined(ENABLE_ADK)
+//#define ENABLE_USB
+//USB Usb; // This will take care of all USB communication
+//#else
+//#define _usb_h_ // Workaround include trap in the USB Host library
+//#include <avrpins.h> // Include this from the USB Host library
+//#endif
 
 #ifdef ENABLE_ADK
 // Implementation for the Android Open Accessory Protocol. Simply connect your phone to get redirected to the Play Store
@@ -117,122 +70,122 @@ WII Wii(&Btd); // The Wii library can communicate with Wiimotes and the Nunchuck
 #endif
 
 void setup() {
-  /* Setup buzzer pin */
-  buzzer::SetDirWrite();
-
-  /* Read the PID values, target angle and other saved values in the EEPROM */
-  if (!checkInitializationFlags()) {
-    readEEPROMValues(); // Only read the EEPROM values if they have not been restored
-#ifdef ENABLE_SPEKTRUM
-    if (cfg.bindSpektrum) // If flag is set, then bind with Spektrum satellite receiver
-      bindSpektrum();
-#endif
-  } else { // Indicate that the EEPROM values have been reset by turning on the buzzer
-    buzzer::Set();
-    delay(1000);
-    buzzer::Clear();
-    delay(100); // Wait a little after the pin is cleared
-  }
-
-  /* Initialize UART */
-  Serial.begin(115200);
-
-  /* Setup encoders */
-  leftEncoder1::SetDirRead();
-  leftEncoder2::SetDirRead();
-  rightEncoder1::SetDirRead();
-  rightEncoder2::SetDirRead();
-  leftEncoder1::Set(); // Enable pull-ups
-  leftEncoder2::Set();
-  rightEncoder1::Set();
-  rightEncoder2::Set();
-  attachInterrupt(digitalPinToInterrupt(leftEncoder1Pin), leftEncoder, CHANGE);
-  attachInterrupt(digitalPinToInterrupt(rightEncoder1Pin), rightEncoder, CHANGE);
-
-#if defined(PIN_CHANGE_INTERRUPT_VECTOR_LEFT) && defined(PIN_CHANGE_INTERRUPT_VECTOR_RIGHT)
-  /* Enable encoder pins interrupt sources */
-  *digitalPinToPCMSK(leftEncoder2Pin) |= (1 << digitalPinToPCMSKbit(leftEncoder2Pin));
-  *digitalPinToPCMSK(rightEncoder2Pin) |= (1 << digitalPinToPCMSKbit(rightEncoder2Pin));
-
-  /* Enable pin change interrupts */
-  *digitalPinToPCICR(leftEncoder2Pin) |= (1 << digitalPinToPCICRbit(leftEncoder2Pin));
-  *digitalPinToPCICR(rightEncoder2Pin) |= (1 << digitalPinToPCICRbit(rightEncoder2Pin));
-#endif
-
-  /* Set the motordriver diagnostic pins to inputs */
-  leftDiag::SetDirRead();
-  rightDiag::SetDirRead();
-
-  /* Setup motor pins to output */
-  leftPWM::SetDirWrite();
-  leftA::SetDirWrite();
-  leftB::SetDirWrite();
-  rightPWM::SetDirWrite();
-  rightA::SetDirWrite();
-  rightB::SetDirWrite();
-
-  /* Set PWM frequency to 20kHz - see the datasheet http://www.atmel.com/Images/Atmel-8272-8-bit-AVR-microcontroller-ATmega164A_PA-324A_PA-644A_PA-1284_P_datasheet.pdf page 129-139 */
-  // Set up PWM, Phase and Frequency Correct on pin 18 (OC1A) & pin 17 (OC1B) with ICR1 as TOP using Timer1
-  TCCR1B = (1 << WGM13) | (1 << CS10); // Set PWM Phase and Frequency Correct with ICR1 as TOP and no prescaling
-  ICR1 = PWMVALUE; // ICR1 is the TOP value - this is set so the frequency is equal to 20kHz
-
-  /* Enable PWM on pin 18 (OC1A) & pin 17 (OC1B) */
-  // Clear OC1A/OC1B on compare match when up-counting
-  // Set OC1A/OC1B on compare match when down-counting
-  TCCR1A = (1 << COM1A1) | (1 << COM1B1);
-
-#ifdef ENABLE_USB
-  if (Usb.Init() == -1) { // Check if USB Host is working
-    Serial.print(F("OSC did not start"));
-    buzzer::Set();
-    while (1); // Halt
-  }
-#endif
-
-  /* Attach onInit function */
-  // This is used to set the LEDs according to the voltage level and vibrate the controller to indicate the new connection
-#ifdef ENABLE_PS3
-  PS3.attachOnInit(onInitPS3);
-#endif
-#ifdef ENABLE_PS4
-  PS4.attachOnInit(onInitPS4);
-#endif
-#ifdef ENABLE_WII
-  Wii.attachOnInit(onInitWii);
-#endif
-#ifdef ENABLE_XBOX
-  Xbox.attachOnInit(onInitXbox);
-#endif
-
+//  /* Setup buzzer pin */
+//  buzzer::SetDirWrite();
+//
+//  /* Read the PID values, target angle and other saved values in the EEPROM */
+//  if (!checkInitializationFlags()) {
+//    readEEPROMValues(); // Only read the EEPROM values if they have not been restored
+//#ifdef ENABLE_SPEKTRUM
+//    if (cfg.bindSpektrum) // If flag is set, then bind with Spektrum satellite receiver
+//      bindSpektrum();
+//#endif
+//  } else { // Indicate that the EEPROM values have been reset by turning on the buzzer
+//    buzzer::Set();
+//    delay(1000);
+//    buzzer::Clear();
+//    delay(100); // Wait a little after the pin is cleared
+//  }
+//
+//  /* Initialize UART */
+//  Serial.begin(115200);
+//
+//  /* Setup encoders */
+//  leftEncoder1::SetDirRead();
+//  leftEncoder2::SetDirRead();
+//  rightEncoder1::SetDirRead();
+//  rightEncoder2::SetDirRead();
+//  leftEncoder1::Set(); // Enable pull-ups
+//  leftEncoder2::Set();
+//  rightEncoder1::Set();
+//  rightEncoder2::Set();
+//  attachInterrupt(digitalPinToInterrupt(leftEncoder1Pin), leftEncoder, CHANGE);
+//  attachInterrupt(digitalPinToInterrupt(rightEncoder1Pin), rightEncoder, CHANGE);
+//
+//#if defined(PIN_CHANGE_INTERRUPT_VECTOR_LEFT) && defined(PIN_CHANGE_INTERRUPT_VECTOR_RIGHT)
+//  /* Enable encoder pins interrupt sources */
+//  *digitalPinToPCMSK(leftEncoder2Pin) |= (1 << digitalPinToPCMSKbit(leftEncoder2Pin));
+//  *digitalPinToPCMSK(rightEncoder2Pin) |= (1 << digitalPinToPCMSKbit(rightEncoder2Pin));
+//
+//  /* Enable pin change interrupts */
+//  *digitalPinToPCICR(leftEncoder2Pin) |= (1 << digitalPinToPCICRbit(leftEncoder2Pin));
+//  *digitalPinToPCICR(rightEncoder2Pin) |= (1 << digitalPinToPCICRbit(rightEncoder2Pin));
+//#endif
+//
+//  /* Set the motordriver diagnostic pins to inputs */
+//  leftDiag::SetDirRead();
+//  rightDiag::SetDirRead();
+//
+//  /* Setup motor pins to output */
+//  leftPWM::SetDirWrite();
+//  leftA::SetDirWrite();
+//  leftB::SetDirWrite();
+//  rightPWM::SetDirWrite();
+//  rightA::SetDirWrite();
+//  rightB::SetDirWrite();
+//
+//  /* Set PWM frequency to 20kHz - see the datasheet http://www.atmel.com/Images/Atmel-8272-8-bit-AVR-microcontroller-ATmega164A_PA-324A_PA-644A_PA-1284_P_datasheet.pdf page 129-139 */
+//  // Set up PWM, Phase and Frequency Correct on pin 18 (OC1A) & pin 17 (OC1B) with ICR1 as TOP using Timer1
+//  TCCR1B = (1 << WGM13) | (1 << CS10); // Set PWM Phase and Frequency Correct with ICR1 as TOP and no prescaling
+//  ICR1 = PWMVALUE; // ICR1 is the TOP value - this is set so the frequency is equal to 20kHz
+//
+//  /* Enable PWM on pin 18 (OC1A) & pin 17 (OC1B) */
+//  // Clear OC1A/OC1B on compare match when up-counting
+//  // Set OC1A/OC1B on compare match when down-counting
+//  TCCR1A = (1 << COM1A1) | (1 << COM1B1);
+//
+//#ifdef ENABLE_USB
+//  if (Usb.Init() == -1) { // Check if USB Host is working
+//    Serial.print(F("OSC did not start"));
+//    buzzer::Set();
+//    while (1); // Halt
+//  }
+//#endif
+//
+//  /* Attach onInit function */
+//  // This is used to set the LEDs according to the voltage level and vibrate the controller to indicate the new connection
+//#ifdef ENABLE_PS3
+//  PS3.attachOnInit(onInitPS3);
+//#endif
+//#ifdef ENABLE_PS4
+//  PS4.attachOnInit(onInitPS4);
+//#endif
+//#ifdef ENABLE_WII
+//  Wii.attachOnInit(onInitWii);
+//#endif
+//#ifdef ENABLE_XBOX
+//  Xbox.attachOnInit(onInitXbox);
+//#endif
+//
   /* Setup IMU */
-  Wire.begin();
-  TWBR = ((F_CPU / 400000L) - 16) / 2; // Set I2C frequency to 400kHz
+//  Wire.begin();
+//  TWBR = ((F_CPU / 400000L) - 16) / 2; // Set I2C frequency to 400kHz
 
-  while (i2cRead(0x75, i2cBuffer, 1));
-  if (i2cBuffer[0] != 0x68) { // Read "WHO_AM_I" register
-    Serial.print(F("Error reading sensor"));
-    buzzer::Set();
-    while (1); // Halt
-  }
+//  while (i2cRead(0x75, i2cBuffer, 1));
+//  if (i2cBuffer[0] != 0x68) { // Read "WHO_AM_I" register
+//    Serial.print(F("Error reading sensor"));
+//    buzzer::Set();
+//    while (1); // Halt
+//  }
 
-  while (i2cWrite(0x6B, 0x80, true)); // Reset device, this resets all internal registers to their default values
-  do {
-    while (i2cRead(0x6B, i2cBuffer, 1));
-  } while (i2cBuffer[0] & 0x80); // Wait for the bit to clear
-  delay(5);
-  while (i2cWrite(0x6B, 0x09, true)); // PLL with X axis gyroscope reference, disable temperature sensor and disable sleep mode
-#if 1
-  i2cBuffer[0] = 1; // Set the sample rate to 500Hz - 1kHz/(1+1) = 500Hz
-  i2cBuffer[1] = 0x03; // Disable FSYNC and set 44 Hz Acc filtering, 42 Hz Gyro filtering, 1 KHz sampling
-#else
-  i2cBuffer[0] = 15; // Set the sample rate to 500Hz - 8kHz/(15+1) = 500Hz
-  i2cBuffer[1] = 0x00; // Disable FSYNC and set 260 Hz Acc filtering, 256 Hz Gyro filtering, 8 KHz sampling
-#endif
-  i2cBuffer[2] = 0x00; // Set Gyro Full Scale Range to ±250deg/s
-  i2cBuffer[3] = 0x00; // Set Accelerometer Full Scale Range to ±2g
-  while (i2cWrite(0x19, i2cBuffer, 4, true)); // Write to all four registers at once
-
-  delay(100); // Wait for the sensor to get ready
+//  while (i2cWrite(0x6B, 0x80, true)); // Reset device, this resets all internal registers to their default values
+//  do {
+//    while (i2cRead(0x6B, i2cBuffer, 1));
+//  } while (i2cBuffer[0] & 0x80); // Wait for the bit to clear
+//  delay(5);
+//  while (i2cWrite(0x6B, 0x09, true)); // PLL with X axis gyroscope reference, disable temperature sensor and disable sleep mode
+//if 1
+//  i2cBuffer[0] = 1; // Set the sample rate to 500Hz - 1kHz/(1+1) = 500Hz
+//  i2cBuffer[1] = 0x03; // Disable FSYNC and set 44 Hz Acc filtering, 42 Hz Gyro filtering, 1 KHz sampling
+//#else
+//  i2cBuffer[0] = 15; // Set the sample rate to 500Hz - 8kHz/(15+1) = 500Hz
+//  i2cBuffer[1] = 0x00; // Disable FSYNC and set 260 Hz Acc filtering, 256 Hz Gyro filtering, 8 KHz sampling
+//#endif
+//  i2cBuffer[2] = 0x00; // Set Gyro Full Scale Range to ±250deg/s
+//  i2cBuffer[3] = 0x00; // Set Accelerometer Full Scale Range to ±2g
+//  while (i2cWrite(0x19, i2cBuffer, 4, true)); // Write to all four registers at once
+//
+//  delay(100); // Wait for the sensor to get ready
 
   /* Set Kalman and gyro starting angle */
   while (i2cRead(0x3D, i2cBuffer, 4));
