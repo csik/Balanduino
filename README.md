@@ -1,4 +1,7 @@
-# Balanduino
+# NOT Balanduino -- this is a rewrite of the code for BeagleBoneBlack and the DMCC motor driver, as well as the sensor fused option of the MPU6050.  Not ready for prime time.
+
+### Thanks to the wunderkinds at TKJ electronics.
+
 #### Developed by TKJ Electronics 2013-2014
 
 The code is released under the GNU General Public License.
